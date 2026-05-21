@@ -24,7 +24,7 @@
 	"bugs": {
 	"url": "https://github.com/hamboy75/opencode-go-copilot-sniffer-optimizer/issues"
 	},
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"engines": {
 		"vscode": "^1.116.0"
 	},
@@ -66,6 +66,11 @@
 				"command": "opencodegosniffer.openLocalStats",
 				"category": "%commandCategory%",
 				"title": "%command.openLocalStats%"
+			},
+			{
+				"command": "opencodegosniffer.openUsageStats",
+				"category": "%commandCategory%",
+				"title": "%command.openUsageStats%"
 			},
 			{
 				"command": "opencodegosniffer.restartLocalStats",
@@ -162,6 +167,9 @@
 				{
 					"command": "opencodegosniffer.abortGitCommitMessage",
 					"when": "config.git.enabled && opencodegosniffer.isGeneratingCommit"
+				},
+				{
+					"command": "opencodegosniffer.openUsageStats"
 				}
 			]
 		},

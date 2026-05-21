@@ -45,7 +45,12 @@ The internal command and setting namespace is still `opencodegosniffer.*` for co
 - Request pruning and optimization.
 - Preview mode for pruning savings before changing traffic.
 - Token and byte savings metrics.
-- OpenCode usage fetcher from the OpenCode workspace usage endpoint.
+- Dedicated Usage tab.
+- OpenCode current quota cards for rolling 5-hour, weekly and monthly usage.
+- Reset countdowns read from OpenCode usage data.
+- OpenCode usage detail loading through the `_server` endpoint.
+- Usage charts for daily cost and token usage.
+- Usage detail table by model, provider, date, session and page.
 - Local and intranet dashboard URLs.
 - Dynamic port selection for multiple VS Code instances.
 - IP allowlist for intranet access.
@@ -114,7 +119,10 @@ The dashboard shows:
 - request details;
 - JSON tree inspection;
 - selected field modal;
-- OpenCode workspace usage totals.
+- dedicated Sniffer and Usage tabs;
+- OpenCode rolling 5-hour, weekly and monthly usage percentages;
+- OpenCode usage detail rows;
+- local usage charts.
 
 ## Dashboard commands
 
@@ -301,18 +309,23 @@ The dashboard shows:
 
 ## OpenCode usage integration
 
-The dashboard can query the OpenCode workspace usage backend through the local Sniffer server.
+The dashboard includes a dedicated **Usage** tab for OpenCode workspace consumption.
 
-This avoids browser CORS and cookie header limitations.
+This tab is separated from the Sniffer tab because it answers a different question:
 
-The usage panel accepts:
+- **Sniffer** shows what this extension is sending and receiving in real time.
+- **Usage** shows OpenCode account/workspace consumption as reported by OpenCode itself.
+
+The local Sniffer server performs these calls server-side to avoid browser CORS and cookie header limitations.
+
+### Current usage / quota
+
+The **Load current usage** button reads the OpenCode `/go` page for the selected workspace.
+
+This requires only:
 
 - workspace usage URL;
-- workspace ID;
-- auth cookie;
-- start page;
-- max pages;
-- optional `x-server-id` / server hash.
+- auth cookie.
 
 Example usage URL:
 
@@ -322,7 +335,37 @@ https://opencode.ai/workspace/wrk_XXXXXXXXXXXXXXXXXXXXXXXXXX/usage
 
 The workspace ID is extracted automatically from the URL when possible.
 
-The usage panel shows:
+The current usage view shows quota cards for:
+
+- rolling 5-hour usage;
+- weekly usage;
+- monthly usage.
+
+Each card shows:
+
+- usage percentage;
+- status;
+- remaining time until reset.
+
+The reset time is not guessed locally. It is read from OpenCode's own page data, using values such as `rollingUsage.resetInSec`, `weeklyUsage.resetInSec` and `monthlyUsage.resetInSec`.
+
+That means the dashboard follows the same reset windows OpenCode reports, including the rolling 5-hour window.
+
+### Usage detail / historical rows
+
+The **Load usage detail** button reads the OpenCode internal `_server` usage endpoint.
+
+This is used for detailed historical usage rows and requires:
+
+- workspace usage URL;
+- auth cookie;
+- `x-server-id`;
+- start page;
+- max pages.
+
+The `x-server-id` is required only for detailed rows. You can copy it from Chrome DevTools or from a copied `curl` request to `https://opencode.ai/_server`.
+
+The detail view shows:
 
 - rows loaded;
 - input tokens;
@@ -333,8 +376,27 @@ The usage panel shows:
 - estimated cost;
 - usage table by model, provider, date, session and page.
 
+It also renders simple local charts for:
+
+- daily cost;
+- daily token usage.
+
+### Usage fields
+
+| Field | Required for current usage | Required for usage detail | Notes |
+|------|-----------------------------|----------------------------|-------|
+| Usage URL | Yes | Yes | Example: `https://opencode.ai/workspace/wrk_.../usage` |
+| Auth cookie | Yes | Yes | Accepts either `auth=...; oc_locale=es` or the raw auth value |
+| x-server-id | No | Yes | Required only for `_server` usage detail |
+| Start page | No | Yes | First detail page to load |
+| Max pages | No | Yes | Number of `_server` detail pages to fetch |
+
+### Privacy and storage
+
 > [!WARNING]
 > Your OpenCode auth cookie is sensitive. The dashboard stores it only in browser `localStorage`, but you should treat it as a secret. Clear it after debugging and rotate your session if it was exposed.
+
+The OpenCode usage integration is optional. It is intended for debugging, monitoring and understanding consumption while working with OpenCode GO models through Copilot Chat.
 
 ## Advanced token indicator
 

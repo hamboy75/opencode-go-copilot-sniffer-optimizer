@@ -1,10 +1,24 @@
 
 ---
 
-## 4. `CHANGELOG.md` nuevo
+## 4. `CHANGELOG.md`
 
 ```markdown
 # Changelog
+
+## 1.0.1
+
+### Fixed
+
+- Prefer the intranet dashboard URL when opening the Sniffer or Usage dashboard from VS Code commands.
+- Fixed Remote SSH usage where clicking the `OC` usage status bar opened `127.0.0.1` instead of the remote host LAN address.
+- Added a shared preferred dashboard URL resolver that falls back to the local URL only when no intranet address can be detected.
+
+### Notes
+
+- This mainly affects remote VS Code sessions where the dashboard server runs on the remote machine.
+- `Copy Local Sniffer URL` still copies the explicit local URL.
+- `Copy Intranet Sniffer URL` still copies the explicit intranet URL.
 
 ## 1.0.0
 

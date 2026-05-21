@@ -16,6 +16,9 @@ const WELCOME_SHOWN_KEY = "opencodegosniffer.welcomeShown";
 /** Walkthrough contribution ID (publisher.extension#walkthroughId). */
 const WALKTHROUGH_ID = "Hamboy75.opencode-go-copilot-sniffer-optimizer#opencodeGoGettingStarted";
 
+const OPENCODE_USAGE_STATUS_INTERVAL_MS = 5 * 60 * 1000;
+const OPENCODE_USAGE_STATUS_INITIAL_DELAY_MS = 5000;
+
 export function activate(context: vscode.ExtensionContext) {
     // Initialize logger
     logger.init();
@@ -29,6 +32,28 @@ export function activate(context: vscode.ExtensionContext) {
         logger.warn("localStats.start.failed", { error: String(error) });
         vscode.window.showWarningMessage(l10nFormat("OpenCode GO Sniffer server could not start: {0}", String(error)));
     });
+
+    const openCodeUsageStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 99);
+    openCodeUsageStatusBarItem.name = "OpenCode GO Usage";
+    openCodeUsageStatusBarItem.command = "opencodegosniffer.openUsageStats";
+    openCodeUsageStatusBarItem.text = "OC $(search) -- / -- / --";
+    openCodeUsageStatusBarItem.tooltip = "OpenCode Usage\nRolling 5h: not loaded\nWeekly: not loaded\nMonthly: not loaded\nClick to open Usage tab";
+    openCodeUsageStatusBarItem.show();
+
+    const refreshOpenCodeUsageStatus = () => {
+        void updateOpenCodeUsageStatusBar(localStatsServer, openCodeUsageStatusBarItem);
+    };
+
+    const openCodeUsageStatusInitialTimer = setTimeout(refreshOpenCodeUsageStatus, OPENCODE_USAGE_STATUS_INITIAL_DELAY_MS);
+    const openCodeUsageStatusTimer = setInterval(refreshOpenCodeUsageStatus, OPENCODE_USAGE_STATUS_INTERVAL_MS);
+
+    context.subscriptions.push(openCodeUsageStatusBarItem, {
+        dispose: () => {
+            clearTimeout(openCodeUsageStatusInitialTimer);
+            clearInterval(openCodeUsageStatusTimer);
+        },
+    });
+
     const provider = new OpenCodeGoChatModelProvider(context.secrets, tokenCountStatusBarItem);
 
     // Register the OpenCode GO Sniffer provider under the vendor id used in package.json
@@ -82,9 +107,19 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Local statistics dashboard commands
     context.subscriptions.push(
+        vscode.commands.registerCommand("opencodegosniffer.openUsageStats", async () => {
+            await localStatsServer.start();
+            const url = localStatsServer.getPreferredDashboardUrl("usage");
+            if (!url) {
+                vscode.window.showWarningMessage(l10n("OpenCode GO Sniffer server is disabled."));
+                return;
+            }
+            vscode.env.openExternal(vscode.Uri.parse(url));
+            refreshOpenCodeUsageStatus();
+        }),
         vscode.commands.registerCommand("opencodegosniffer.openLocalStats", async () => {
             await localStatsServer.start();
-            const url = localStatsServer.getDashboardUrl();
+            const url = localStatsServer.getPreferredDashboardUrl();
             if (!url) {
                 vscode.window.showWarningMessage(l10n("OpenCode GO Sniffer server is disabled."));
                 return;
@@ -294,6 +329,51 @@ async function showWelcomeIfNeeded(context: vscode.ExtensionContext): Promise<vo
     } catch (error) {
         logger.warn("Failed to show welcome walkthrough", { error: String(error) });
     }
+}
+
+async function updateOpenCodeUsageStatusBar(
+    localStatsServer: LocalStatsServer,
+    item: vscode.StatusBarItem
+): Promise<void> {
+    try {
+        const quota = await localStatsServer.getStoredOpencodeQuota();
+        if (!quota) {
+            item.text = "OC $(search) -- / -- / --";
+            item.tooltip = "OpenCode Usage\nRolling 5h: not configured\nWeekly: not configured\nMonthly: not configured\nClick to open Usage tab";
+            return;
+        }
+
+        const rolling = quota.rolling?.usagePercent ?? 0;
+        const weekly = quota.weekly?.usagePercent ?? 0;
+        const monthly = quota.monthly?.usagePercent ?? 0;
+
+        item.text = `OC $(search) ${formatUsagePercent(rolling)} / ${formatUsagePercent(weekly)} / ${formatUsagePercent(monthly)}`;
+        item.tooltip = [
+            "OpenCode Usage",
+            `Rolling 5h: ${formatUsagePercent(rolling)} (${formatResetTime(quota.rolling?.resetsInSeconds)})`,
+            `Weekly: ${formatUsagePercent(weekly)} (${formatResetTime(quota.weekly?.resetsInSeconds)})`,
+            `Monthly: ${formatUsagePercent(monthly)} (${formatResetTime(quota.monthly?.resetsInSeconds)})`,
+            "Click to open Usage tab",
+        ].join("\n");
+    } catch (error) {
+        item.text = "OC $(search) error";
+        item.tooltip = `OpenCode Usage\nCould not refresh usage: ${error instanceof Error ? error.message : String(error)}\nClick to open Usage tab`;
+    }
+}
+
+function formatUsagePercent(value: unknown): string {
+    const numeric = Number(value ?? 0);
+    return `${Math.max(0, Math.min(100, Math.round(Number.isFinite(numeric) ? numeric : 0)))}%`;
+}
+
+function formatResetTime(seconds: unknown): string {
+    const total = Math.max(0, Number(seconds ?? 0));
+    const days = Math.floor(total / 86400);
+    const hours = Math.floor((total % 86400) / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    if (days > 0) return `resets in ${days}d ${hours}h`;
+    if (hours > 0) return `resets in ${hours}h ${minutes}m`;
+    return `resets in ${minutes}m`;
 }
 
 export function deactivate() { }

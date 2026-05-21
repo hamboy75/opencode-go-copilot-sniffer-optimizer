@@ -52,6 +52,7 @@
 	"walkthrough.advancedSettings.title": "探索高级设置",
 	"walkthrough.advancedSettings.description": "自定义模型预设、启用 Zen 免费模型、配置视觉代理、本地 Sniffer 面板、Payload 捕获和请求裁剪等。\n[打开设置](command:opencodegosniffer.openSettings)",
 	"command.openLocalStats": "打开 Sniffer 面板",
+	"command.openUsageStats": "打开用量面板",
 	"command.restartLocalStats": "重启 Sniffer 服务器",
 	"command.copyLocalStatsUrl": "复制本地 Sniffer URL",
 	"command.copyIntranetStatsUrl": "复制内网 Sniffer URL",

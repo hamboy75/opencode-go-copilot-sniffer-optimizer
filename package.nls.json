@@ -3,6 +3,7 @@
 	"commandCategory": "OpenCode GO Sniffer",
 	"command.openSettings": "Open OpenCode GO Sniffer & Optimizer Settings",
 	"command.openLocalStats": "Open Sniffer Dashboard",
+	"command.openUsageStats": "Open Usage Dashboard",
 	"command.restartLocalStats": "Restart Sniffer Server",
 	"command.copyLocalStatsUrl": "Copy Local Sniffer URL",
 	"command.copyIntranetStatsUrl": "Copy Intranet Sniffer URL",

@@ -5,6 +5,22 @@ import * as vscode from "vscode";
 import { localStatsRecorder } from "./recorder";
 
 const LOCAL_STATS_TOKEN_KEY = "opencodegosniffer.localStatsToken";
+const OPENCODE_USAGE_URL_KEY = "opencodegosniffer.openCodeUsage.usageUrl";
+const OPENCODE_USAGE_AUTH_COOKIE_KEY = "opencodegosniffer.openCodeUsage.authCookie";
+const OPENCODE_USAGE_DETAIL_DEFAULT_START_PAGE = 0;
+const OPENCODE_USAGE_DETAIL_MAX_AUTO_PAGES = 100;
+
+export interface OpencodeQuotaWindow {
+    status: "ok" | "error" | "unknown";
+    usagePercent: number;
+    resetsInSeconds: number;
+}
+
+export interface OpencodeQuotaSnapshot {
+    rolling: OpencodeQuotaWindow;
+    weekly: OpencodeQuotaWindow;
+    monthly: OpencodeQuotaWindow;
+}
 
 export class LocalStatsServer {
     private server?: http.Server;
@@ -87,21 +103,38 @@ export class LocalStatsServer {
         return `http://${hostForUrl(displayHost)}:${this.port}`;
     }
 
-    getDashboardUrl(): string | undefined {
+    getDashboardUrl(page?: "sniffer" | "usage"): string | undefined {
         const base = this.getBaseUrl();
         if (!base || !this.token) return undefined;
-        return this.buildDashboardUrl(base);
+        return this.buildDashboardUrl(base, page);
     }
 
-    getIntranetDashboardUrl(): string | undefined {
+    getIntranetDashboardUrl(page?: "sniffer" | "usage"): string | undefined {
         if (!this.port || !this.token) return undefined;
         const intranetHost = this.getIntranetHost();
         if (!intranetHost) return undefined;
-        return this.buildDashboardUrl(`http://${hostForUrl(intranetHost)}:${this.port}`);
+        return this.buildDashboardUrl(`http://${hostForUrl(intranetHost)}:${this.port}`, page);
     }
 
-    private buildDashboardUrl(base: string): string {
-        return `${base}/?token=${encodeURIComponent(this.token ?? "")}`;
+    getPreferredDashboardUrl(page?: "sniffer" | "usage"): string | undefined {
+        return this.getIntranetDashboardUrl(page) ?? this.getDashboardUrl(page);
+    }
+
+    private buildDashboardUrl(base: string, page?: "sniffer" | "usage"): string {
+        const hash = page ? `#${page}` : "";
+        return `${base}/?token=${encodeURIComponent(this.token ?? "")}${hash}`;
+    }
+
+    async getStoredOpencodeQuota(): Promise<OpencodeQuotaSnapshot | undefined> {
+        const usageUrl = this.context.globalState.get<string>(OPENCODE_USAGE_URL_KEY);
+        const authCookie = await this.context.secrets.get(OPENCODE_USAGE_AUTH_COOKIE_KEY);
+        const workspaceId = extractWorkspaceIdFromUsageUrl(usageUrl);
+
+        if (!workspaceId || !authCookie) {
+            return undefined;
+        }
+
+        return fetchOpencodeQuotaSnapshot(workspaceId, normalizeOpencodeCookie(authCookie));
     }
 
     private getIntranetHost(): string | undefined {
@@ -188,6 +221,14 @@ export class LocalStatsServer {
                 this.json(res, 200, item);
                 return;
             }
+            if (req.method === "POST" && url.pathname === "/api/opencode/quota") {
+                void this.handleOpencodeQuota(req, res);
+                return;
+            }
+            if (req.method === "POST" && url.pathname === "/api/opencode/usage-detail") {
+                void this.handleOpencodeUsageDetail(req, res);
+                return;
+            }
             if (req.method === "POST" && url.pathname === "/api/opencode/usage") {
                 void this.handleOpencodeUsage(req, res);
                 return;
@@ -219,15 +260,56 @@ export class LocalStatsServer {
         return !!this.token && (tokenFromQuery === this.token || tokenFromHeader === this.token);
     }
 
+    private async handleOpencodeQuota(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+        try {
+            const input = await readJsonBody<OpencodeUsageRequestInput>(req);
+            await this.persistOpenCodeUsageConfig(input);
+            const workspaceId = String(input.workspaceId ?? extractWorkspaceIdFromUsageUrl(input.usageUrl) ?? "").trim();
+            const authCookie = String(input.authCookie ?? "").trim();
+            if (!workspaceId) throw new Error("Usage URL must contain a workspace id like wrk_...");
+            if (!authCookie) throw new Error("authCookie is required.");
+            const quota = await fetchOpencodeQuotaSnapshot(workspaceId, normalizeOpencodeCookie(authCookie));
+            this.json(res, 200, { ok: true, workspaceId, quota });
+        } catch (err) {
+            this.json(res, 500, { error: err instanceof Error ? err.message : String(err) });
+        }
+    }
+
+    private async handleOpencodeUsageDetail(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+        try {
+            const input = await readJsonBody<OpencodeUsageRequestInput>(req);
+            await this.persistOpenCodeUsageConfig(input);
+            const result = await fetchOpencodeUsageDetail(input);
+            this.json(res, 200, result);
+        } catch (err) {
+            this.json(res, 500, {
+                error: err instanceof Error ? err.message : String(err),
+            });
+        }
+    }
+
     private async handleOpencodeUsage(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
         try {
             const input = await readJsonBody<OpencodeUsageRequestInput>(req);
+            await this.persistOpenCodeUsageConfig(input);
             const result = await fetchOpencodeUsage(input);
             this.json(res, 200, result);
         } catch (err) {
             this.json(res, 500, {
                 error: err instanceof Error ? err.message : String(err),
             });
+        }
+    }
+
+    private async persistOpenCodeUsageConfig(input: OpencodeUsageRequestInput): Promise<void> {
+        const usageUrl = String(input.usageUrl ?? "").trim();
+        const authCookie = String(input.authCookie ?? "").trim();
+
+        if (usageUrl) {
+            await this.context.globalState.update(OPENCODE_USAGE_URL_KEY, usageUrl);
+        }
+        if (authCookie) {
+            await this.context.secrets.store(OPENCODE_USAGE_AUTH_COOKIE_KEY, authCookie);
         }
     }
 
@@ -288,6 +370,11 @@ interface OpencodeUsageFetchResult {
     workspaceId: string;
     pagesFetched: number;
     rows: OpencodeUsageRow[];
+    quota?: {
+        rolling: OpencodeQuotaWindow;
+        weekly: OpencodeQuotaWindow;
+        monthly: OpencodeQuotaWindow;
+    };
     totals: {
         rows: number;
         inputTokens: number;
@@ -315,14 +402,63 @@ async function fetchOpencodeUsage(input: OpencodeUsageRequestInput): Promise<Ope
     if (!authCookie) {
         throw new Error("authCookie is required.");
     }
+
+    const cookieHeader = normalizeOpencodeCookie(authCookie);
+    const warnings: string[] = [];
+    let quota: OpencodeUsageFetchResult["quota"] | undefined;
+
+    try {
+        quota = await fetchOpencodeQuotaSnapshot(workspaceId, cookieHeader);
+    } catch (err) {
+        warnings.push(`Could not load OpenCode quota percentages from /go: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
     if (!serverId) {
-        throw new Error("x-server-id is required. Copy it from Chrome DevTools/curl header.");
+        return {
+            ok: true,
+            workspaceId,
+            pagesFetched: 0,
+            rows: [],
+            quota,
+            totals: emptyUsageTotals(),
+            warnings: [
+                ...warnings,
+                "Usage detail was not loaded because x-server-id was not provided. Use the detail button with x-server-id to load _server rows.",
+            ],
+        };
+    }
+
+    const detail = await fetchOpencodeUsageDetail(input);
+    return {
+        ...detail,
+        quota,
+        warnings: [...warnings, ...detail.warnings],
+    };
+}
+
+async function fetchOpencodeUsageDetail(input: OpencodeUsageRequestInput): Promise<OpencodeUsageFetchResult> {
+    const workspaceId = String(input.workspaceId ?? extractWorkspaceIdFromUsageUrl(input.usageUrl) ?? "").trim();
+    const authCookie = String(input.authCookie ?? "").trim();
+    const startPage = clampInteger(input.startPage, OPENCODE_USAGE_DETAIL_DEFAULT_START_PAGE, 0, 10000);
+    const maxPages = clampInteger(input.maxPages, OPENCODE_USAGE_DETAIL_MAX_AUTO_PAGES, 1, OPENCODE_USAGE_DETAIL_MAX_AUTO_PAGES);
+    const serverId = String(input.serverId ?? "").trim();
+
+    if (!workspaceId) {
+        throw new Error("Usage URL must contain a workspace id like wrk_...");
+    }
+    if (!authCookie) {
+        throw new Error("authCookie is required.");
+    }
+    if (!serverId) {
+        throw new Error("x-server-id is required for usage detail. Copy it from Chrome DevTools/curl header.");
     }
 
     const cookieHeader = normalizeOpencodeCookie(authCookie);
     const rowsById = new Map<string, OpencodeUsageRow>();
     const warnings: string[] = [];
+    const monthStart = startOfCurrentMonth();
     let pagesFetched = 0;
+    let reachedBeforeMonthStart = false;
 
     for (let page = startPage; page < startPage + maxPages; page++) {
         const body = {
@@ -348,9 +484,12 @@ async function fetchOpencodeUsage(input: OpencodeUsageRequestInput): Promise<Ope
             "origin": "https://opencode.ai",
             "referer": `https://opencode.ai/workspace/${encodeURIComponent(workspaceId)}/usage`,
             "user-agent": "Mozilla/5.0 OpenCodeGoCopilotSniffer/1.0",
-            "x-server-id": serverId,
             "x-server-instance": `server-fn:${page}`,
         };
+
+        if (serverId) {
+            headers["x-server-id"] = serverId;
+        }
 
         const response = await fetch("https://opencode.ai/_server", {
             method: "POST",
@@ -366,13 +505,29 @@ async function fetchOpencodeUsage(input: OpencodeUsageRequestInput): Promise<Ope
         }
 
         const pageRows = parseOpencodeUsageResponse(text, page);
+
         if (pageRows.length === 0) {
             warnings.push(`Page ${page} returned no usage rows.`);
             break;
         }
 
         for (const row of pageRows) {
+            const rowDate = Date.parse(row.timeCreated);
+            if (Number.isFinite(rowDate) && rowDate < monthStart.getTime()) {
+                reachedBeforeMonthStart = true;
+            }
+        }
+
+        for (const row of pageRows) {
+            const rowDate = Date.parse(row.timeCreated);
+            if (Number.isFinite(rowDate) && rowDate < monthStart.getTime()) {
+                continue;
+            }
             rowsById.set(row.id, row);
+        }
+
+        if (reachedBeforeMonthStart) {
+            break;
         }
     }
 
@@ -402,6 +557,10 @@ async function fetchOpencodeUsage(input: OpencodeUsageRequestInput): Promise<Ope
 
     totals.costUsd = Math.round(totals.costUsd * 1000000) / 1000000;
 
+    if (!reachedBeforeMonthStart && pagesFetched >= maxPages) {
+        warnings.push(`Stopped after ${maxPages} pages as a safety limit. Older current-month rows may exist.`);
+    }
+
     return {
         ok: true,
         workspaceId,
@@ -410,6 +569,87 @@ async function fetchOpencodeUsage(input: OpencodeUsageRequestInput): Promise<Ope
         totals,
         warnings,
     };
+}
+
+function emptyUsageTotals(): OpencodeUsageFetchResult["totals"] {
+    return {
+        rows: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWrite5mTokens: 0,
+        cacheWrite1hTokens: 0,
+        totalInputLikeTokens: 0,
+        costUsd: 0,
+    };
+}
+
+function startOfCurrentMonth(): Date {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+}
+
+async function fetchOpencodeQuotaSnapshot(workspaceId: string, cookieHeader: string): Promise<{
+    rolling: OpencodeQuotaWindow;
+    weekly: OpencodeQuotaWindow;
+    monthly: OpencodeQuotaWindow;
+}> {
+    const response = await fetch(`https://opencode.ai/workspace/${encodeURIComponent(workspaceId)}/go`, {
+        method: "GET",
+        headers: {
+            "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "accept-language": "es-ES,es;q=0.9,en;q=0.8",
+            "cookie": cookieHeader,
+            "referer": `https://opencode.ai/workspace/${encodeURIComponent(workspaceId)}`,
+            "user-agent": "Mozilla/5.0 OpenCodeGoCopilotSniffer/1.0",
+        },
+        redirect: "follow",
+    });
+
+    const html = await response.text();
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status} ${response.statusText}: ${html.slice(0, 300)}`);
+    }
+
+    return parseOpencodeQuotaHtml(html);
+}
+
+function parseOpencodeQuotaHtml(html: string): {
+    rolling: OpencodeQuotaWindow;
+    weekly: OpencodeQuotaWindow;
+    monthly: OpencodeQuotaWindow;
+} {
+    const extractWindow = (name: string): OpencodeQuotaWindow => {
+        const patterns = [
+            new RegExp(`${name}:\\$R\\[\\d+\\]=\\{status:"([^"]+)",resetInSec:(\\d+),usagePercent:(\\d+)\\}`),
+            new RegExp(`${name}=\\{status:"([^"]+)",resetInSec:(\\d+),usagePercent:(\\d+)\\}`),
+        ];
+
+        for (const pattern of patterns) {
+            const match = pattern.exec(html);
+            if (match) {
+                const status = match[1] === "ok" || match[1] === "error" ? match[1] : "unknown";
+                return {
+                    status,
+                    resetsInSeconds: Number(match[2]),
+                    usagePercent: Number(match[3]),
+                };
+            }
+        }
+
+        return { status: "unknown", resetsInSeconds: 0, usagePercent: 0 };
+    };
+
+    const rolling = extractWindow("rollingUsage");
+    const weekly = extractWindow("weeklyUsage");
+    const monthly = extractWindow("monthlyUsage");
+
+    if (rolling.status === "unknown" && weekly.status === "unknown" && monthly.status === "unknown") {
+        throw new Error("Could not find rollingUsage, weeklyUsage or monthlyUsage in OpenCode HTML.");
+    }
+
+    return { rolling, weekly, monthly };
 }
 
 function parseOpencodeUsageResponse(text: string, page: number): OpencodeUsageRow[] {
@@ -522,6 +762,10 @@ button{background:#252525;color:#eee;border:1px solid #444;border-radius:8px;pad
 button:hover{background:#333}
 button.tabButton.active{background:#315a8a;border-color:#6aa9ff;color:#fff}
 button.tabButton.active:hover{background:#38669c}
+.topTabs{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}
+.topTabButton.active{background:#315a8a;border-color:#6aa9ff;color:#fff}
+.page{display:none}
+.page.active{display:block}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:16px 0}
 .card{background:#1d1d1d;border:1px solid #333;border-radius:10px;padding:14px}
 .muted{color:#aaa}
@@ -532,6 +776,14 @@ button.tabButton.active:hover{background:#38669c}
 .usageTable{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px}
 .usageTable th,.usageTable td{border-bottom:1px solid #333;padding:7px;text-align:left}
 .usageTable th{color:#aaa;font-weight:600}
+.quotaGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:16px 0}
+.quotaCard{background:#1d1d1d;border:1px solid #333;border-radius:14px;padding:14px}
+.quotaTop{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.quotaPct{font-size:28px;font-weight:800}
+.progress{height:12px;background:#070707;border:1px solid #333;border-radius:999px;overflow:hidden;margin:12px 0}
+.progressFill{height:100%;background:linear-gradient(90deg,#57d88a,#ffd166,#ff6b6b);width:0%}
+.chartBox{background:#151515;border:1px solid #333;border-radius:12px;padding:14px;margin:16px 0}
+.chartSvg{width:100%;height:220px;display:block;background:#0b0b0b;border:1px solid #252525;border-radius:10px}
 .row{padding:10px;border-bottom:1px solid #333;cursor:pointer}
 .row:hover{background:#1a1a1a}
 .row.selected{background:#202a38}
@@ -566,17 +818,27 @@ code{font-family:ui-monospace,SFMono-Regular,Consolas,Liberation Mono,Menlo,mono
 <body>
 <h1>OpenCode GO Sniffer</h1>
 <p class="muted">Local Sniffer dashboard. Token auth is embedded in this URL.</p>
+
+<div class="topTabs">
+  <button id="showSnifferPageBtn" class="topTabButton" data-page="sniffer">🕵️ Sniffer</button>
+  <button id="showUsagePageBtn" class="topTabButton" data-page="usage">📊 Usage</button>
+</div>
+
+<main id="snifferPage" class="page">
 <div class="toolbar">
   <button id="refreshBtn">Refresh</button>
   <button id="clearBtn">Clear</button>
 </div>
 <div id="summary" class="cards"></div>
 
+</main>
+
+<main id="usagePage" class="page">
 <section class="usagePanel">
   <h2>OpenCode Usage</h2>
   <p class="muted">
-    Paste your OpenCode workspace ID and auth cookie. The cookie is stored only in this browser localStorage.
-    The local Sniffer server calls opencode.ai server-side to avoid CORS/cookie header limitations.
+    Paste your OpenCode usage URL and auth cookie. The cookie is stored only in this browser localStorage.
+    The local Sniffer server calls opencode.ai server-side to avoid CORS/cookie limitations. Quota percentages are read from the OpenCode /go page.
   </p>
   <div class="usageForm">
     <label>
@@ -588,30 +850,27 @@ code{font-family:ui-monospace,SFMono-Regular,Consolas,Liberation Mono,Menlo,mono
       <input id="ocAuthCookie" placeholder="auth=... or raw cookie value" autocomplete="off" type="password" />
     </label>
     <label>
-      Start page
-      <input id="ocStartPage" type="number" min="0" value="2" />
-    </label>
-    <label>
-      Max pages
-      <input id="ocMaxPages" type="number" min="1" max="100" value="5" />
-    </label>
-    <label>
-      Server hash / x-server-id
-      <input id="ocServerId" placeholder="bfd684bfc2e4eed05cd0b518f5e4eafd3f3376e3938abb9e536e7c03df831e5c" autocomplete="off" />
+      x-server-id for detail
+      <input id="ocServerId" placeholder="Required only for Load usage detail. Copy x-server-id from Chrome DevTools/curl." autocomplete="off" />
     </label>
   </div>
   <div class="toolbar">
-    <button id="loadOpenCodeUsageBtn">Load OpenCode usage</button>
+    <button id="loadOpenCodeQuotaBtn">Load current usage</button>
+    <button id="loadOpenCodeUsageDetailBtn">Load usage detail</button>
     <button id="clearOpenCodeUsageConfigBtn">Clear usage config</button>
   </div>
   <div id="ocUsageStatus" class="muted">Not loaded.</div>
+  <div id="ocQuotaSummary" class="quotaGrid"></div>
   <div id="ocUsageSummary" class="cards"></div>
   <div id="ocUsageWarnings" class="muted"></div>
+  <div id="ocUsageCharts"></div>
   <div style="overflow:auto">
     <table id="ocUsageTable" class="usageTable"></table>
   </div>
 </section>
+</main>
 
+<main id="snifferBodyPage" class="page active">
 <div class="split">
   <section>
     <h2>Requests</h2>
@@ -633,6 +892,7 @@ code{font-family:ui-monospace,SFMono-Regular,Consolas,Liberation Mono,Menlo,mono
     <pre><code id="detail">Select a request</code></pre>
   </section>
 </div>
+</main>
 <div id="valueModal" class="modalBackdrop">
   <div class="modal">
     <div class="modalHeader">
@@ -655,11 +915,11 @@ let selectedRequest = null;
 let currentView = 'summary';
 let currentText = '';
 const VALID_VIEWS = new Set(['summary', 'request', 'response']);
+const VALID_PAGES = new Set(['sniffer', 'usage']);
+const CURRENT_PAGE_KEY = 'opencodegosniffer.currentDashboardPage';
 const SHOW_FULL_STRINGS_KEY = 'opencodegosniffer.showFullStringsInTree';
 const OC_USAGE_URL_KEY = 'opencodegosniffer.openCodeUsage.usageUrl';
 const OC_USAGE_COOKIE_KEY = 'opencodegosniffer.openCodeUsage.authCookie';
-const OC_USAGE_START_PAGE_KEY = 'opencodegosniffer.openCodeUsage.startPage';
-const OC_USAGE_MAX_PAGES_KEY = 'opencodegosniffer.openCodeUsage.maxPages';
 const OC_USAGE_SERVER_ID_KEY = 'opencodegosniffer.openCodeUsage.serverId';
 let showFullStringsInTree = localStorage.getItem(SHOW_FULL_STRINGS_KEY) === 'true';
 
@@ -844,6 +1104,16 @@ function formatDate(value){
   return date.toLocaleString();
 }
 
+function formatTime(seconds){
+  seconds = Math.max(0, Number(seconds || 0));
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (days > 0) return days + 'd ' + hours + 'h';
+  if (hours > 0) return hours + 'h ' + minutes + 'm';
+  return minutes + 'm';
+}
+
 function extractWorkspaceIdFromUsageUrl(value){
   const text = String(value || '').trim();
   if (!text) return '';
@@ -868,61 +1138,91 @@ function syncWorkspaceFromUsageUrl(){
 function initOpenCodeUsageForm(){
   document.getElementById('ocUsageUrl').value = localStorage.getItem(OC_USAGE_URL_KEY) || '';
   document.getElementById('ocAuthCookie').value = localStorage.getItem(OC_USAGE_COOKIE_KEY) || '';
-  document.getElementById('ocStartPage').value = localStorage.getItem(OC_USAGE_START_PAGE_KEY) || '2';
-  document.getElementById('ocMaxPages').value = localStorage.getItem(OC_USAGE_MAX_PAGES_KEY) || '5';
   document.getElementById('ocServerId').value = localStorage.getItem(OC_USAGE_SERVER_ID_KEY) || '';
 }
 
 function persistOpenCodeUsageForm(){
   localStorage.setItem(OC_USAGE_URL_KEY, document.getElementById('ocUsageUrl').value.trim());
   localStorage.setItem(OC_USAGE_COOKIE_KEY, document.getElementById('ocAuthCookie').value.trim());
-  localStorage.setItem(OC_USAGE_START_PAGE_KEY, document.getElementById('ocStartPage').value.trim() || '2');
-  localStorage.setItem(OC_USAGE_MAX_PAGES_KEY, document.getElementById('ocMaxPages').value.trim() || '5');
   localStorage.setItem(OC_USAGE_SERVER_ID_KEY, document.getElementById('ocServerId').value.trim());
 }
 
 function clearOpenCodeUsageConfig(){
   localStorage.removeItem(OC_USAGE_URL_KEY);
   localStorage.removeItem(OC_USAGE_COOKIE_KEY);
-  localStorage.removeItem(OC_USAGE_START_PAGE_KEY);
-  localStorage.removeItem(OC_USAGE_MAX_PAGES_KEY);
   localStorage.removeItem(OC_USAGE_SERVER_ID_KEY);
   initOpenCodeUsageForm();
   document.getElementById('ocUsageStatus').textContent = 'Usage config cleared.';
+  document.getElementById('ocQuotaSummary').innerHTML = '';
   document.getElementById('ocUsageSummary').innerHTML = '';
   document.getElementById('ocUsageWarnings').textContent = '';
+  document.getElementById('ocUsageCharts').innerHTML = '';
   document.getElementById('ocUsageTable').innerHTML = '';
 }
 
-async function loadOpenCodeUsage(){
+function readUsageForm(){
   persistOpenCodeUsageForm();
 
   const usageUrl = document.getElementById('ocUsageUrl').value.trim();
   const workspaceId = extractWorkspaceIdFromUsageUrl(usageUrl);
   const authCookie = document.getElementById('ocAuthCookie').value.trim();
-  const startPage = Number(document.getElementById('ocStartPage').value || 0);
-  const maxPages = Number(document.getElementById('ocMaxPages').value || 5);
+  const startPage = 0;
+  const maxPages = 100;
   const serverId = document.getElementById('ocServerId').value.trim();
 
   if (!workspaceId) {
     throw new Error('Usage URL must contain a workspace id like wrk_...');
   }
-  if (!serverId) {
-    throw new Error('Server hash / x-server-id is required. Copy it from the curl header.');
+  if (!authCookie) {
+    throw new Error('Auth cookie is required.');
   }
 
-  document.getElementById('ocUsageStatus').textContent = 'Loading OpenCode usage...';
+  return { usageUrl, workspaceId, authCookie, startPage, maxPages, serverId };
+}
+
+async function loadOpenCodeQuota(){
+  const form = readUsageForm();
+  document.getElementById('ocUsageStatus').textContent = 'Loading current OpenCode usage...';
   document.getElementById('ocUsageWarnings').textContent = '';
 
-  const result = await api('/api/opencode/usage', {
+  const result = await api('/api/opencode/quota', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ usageUrl, workspaceId, authCookie, startPage, maxPages, serverId }),
+    body: JSON.stringify({
+      usageUrl: form.usageUrl,
+      workspaceId: form.workspaceId,
+      authCookie: form.authCookie,
+    }),
+  });
+
+  document.getElementById('ocUsageStatus').textContent = 'Current OpenCode usage loaded.';
+  renderQuotaSummary(result.quota);
+  document.getElementById('ocUsageWarnings').textContent = '';
+}
+
+async function loadOpenCodeUsageDetail(){
+  const form = readUsageForm();
+  if (!form.serverId) {
+    throw new Error('x-server-id is required for usage detail. Copy it from Chrome DevTools/curl header.');
+  }
+
+  document.getElementById('ocUsageStatus').textContent = 'Loading current-month OpenCode usage detail from _server...';
+  document.getElementById('ocUsageWarnings').textContent = '';
+
+  const result = await api('/api/opencode/usage-detail', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(form),
   });
 
   document.getElementById('ocUsageStatus').textContent =
-    'Loaded ' + result.rows.length + ' rows from ' + result.pagesFetched + ' page(s).';
+    'Loaded current-month detail: ' + result.rows.length + ' rows. Scanned ' + result.pagesFetched + ' internal page(s).';
 
+  renderQuotaSummary(result.quota);
+  renderUsageDetail(result);
+}
+
+function renderUsageDetail(result){
   document.getElementById('ocUsageSummary').innerHTML =
     card('Rows', formatNumber(result.totals.rows))+
     card('Input tokens', formatNumber(result.totals.inputTokens))+
@@ -935,9 +1235,16 @@ async function loadOpenCodeUsage(){
   document.getElementById('ocUsageWarnings').textContent = (result.warnings || []).join(' ');
 
   const rows = result.rows || [];
+  renderUsageCharts(rows);
+
+  if (!rows.length) {
+    document.getElementById('ocUsageTable').innerHTML = '';
+    return;
+  }
+
   document.getElementById('ocUsageTable').innerHTML =
     '<thead><tr>'+
-      '<th>Date</th><th>Model</th><th>Provider</th><th>Input</th><th>Output</th><th>Reasoning</th><th>Cache read</th><th>Cost</th><th>Session</th><th>Page</th>'+
+      '<th>Date</th><th>Model</th><th>Provider</th><th>Input</th><th>Output</th><th>Reasoning</th><th>Cache read</th><th>Cost</th><th>Session</th>'+
     '</tr></thead>'+
     '<tbody>'+
     rows.map(row =>
@@ -951,16 +1258,126 @@ async function loadOpenCodeUsage(){
         '<td>'+esc(formatNumber(row.cacheReadTokens))+'</td>'+
         '<td>'+esc(formatUsd(row.costUsd))+'</td>'+
         '<td>'+esc(row.sessionID || '')+'</td>'+
-        '<td>'+esc(row.page)+'</td>'+
       '</tr>'
     ).join('')+
     '</tbody>';
+}
+
+function renderQuotaSummary(quota){
+  if (!quota) {
+    document.getElementById('ocQuotaSummary').innerHTML =
+      '<div class="quotaCard"><div class="muted">Quota</div><strong>Not available</strong></div>';
+    return;
+  }
+
+  document.getElementById('ocQuotaSummary').innerHTML =
+    quotaCard('Rolling 5h', quota.rolling)+
+    quotaCard('Weekly', quota.weekly)+
+    quotaCard('Monthly', quota.monthly);
+}
+
+function quotaCard(label, item){
+  const pct = Math.max(0, Math.min(100, Number(item?.usagePercent || 0)));
+  const status = item?.status || 'unknown';
+  const reset = formatTime(item?.resetsInSeconds || 0);
+  return '<div class="quotaCard">'+
+    '<div class="quotaTop"><div><div class="muted">'+esc(label)+'</div><strong>'+esc(status)+'</strong></div><div class="quotaPct">'+esc(Math.round(pct))+'%</div></div>'+
+    '<div class="progress"><div class="progressFill" style="width:'+esc(pct)+'%"></div></div>'+
+    '<div class="muted">Resets in '+esc(reset)+'</div>'+
+  '</div>';
+}
+
+function aggregateUsageByDay(rows){
+  const map = new Map();
+  for (const row of rows || []) {
+    const date = new Date(row.timeCreated);
+    if (Number.isNaN(date.getTime())) continue;
+    const key = date.toISOString().slice(0, 10);
+    const current = map.get(key) || { day: key, costUsd: 0, inputTokens: 0, outputTokens: 0, reasoningTokens: 0, cacheReadTokens: 0 };
+    current.costUsd += Number(row.costUsd || 0);
+    current.inputTokens += Number(row.inputTokens || 0);
+    current.outputTokens += Number(row.outputTokens || 0);
+    current.reasoningTokens += Number(row.reasoningTokens || 0);
+    current.cacheReadTokens += Number(row.cacheReadTokens || 0);
+    map.set(key, current);
+  }
+  return Array.from(map.values()).sort((a, b) => a.day.localeCompare(b.day));
+}
+
+function renderUsageCharts(rows){
+  const daily = aggregateUsageByDay(rows);
+  if (!daily.length) {
+    document.getElementById('ocUsageCharts').innerHTML = '';
+    return;
+  }
+
+  document.getElementById('ocUsageCharts').innerHTML =
+    '<div class="chartBox"><h3>Daily cost</h3>'+renderBarChart(daily, 'costUsd', value => formatUsd(value))+'</div>'+
+    '<div class="chartBox"><h3>Daily tokens</h3>'+renderBarChart(daily, 'totalTokens', value => formatNumber(value), item => Number(item.inputTokens || 0) + Number(item.outputTokens || 0) + Number(item.reasoningTokens || 0) + Number(item.cacheReadTokens || 0))+'</div>';
+}
+
+function renderBarChart(items, field, formatter, valueGetter){
+  const width = 900;
+  const height = 220;
+  const paddingLeft = 46;
+  const paddingBottom = 34;
+  const paddingTop = 18;
+  const paddingRight = 18;
+  const chartWidth = width - paddingLeft - paddingRight;
+  const chartHeight = height - paddingTop - paddingBottom;
+  const values = items.map(item => valueGetter ? valueGetter(item) : Number(item[field] || 0));
+  const max = Math.max(1, ...values);
+  const barGap = 6;
+  const barWidth = Math.max(6, (chartWidth - barGap * Math.max(0, items.length - 1)) / items.length);
+
+  const bars = items.map((item, index) => {
+    const value = values[index];
+    const barHeight = Math.max(1, (value / max) * chartHeight);
+    const x = paddingLeft + index * (barWidth + barGap);
+    const y = paddingTop + chartHeight - barHeight;
+    const label = item.day.slice(5);
+    return '<g>'+
+      '<title>'+esc(item.day + ' · ' + formatter(value))+'</title>'+
+      '<rect x="'+x+'" y="'+y+'" width="'+barWidth+'" height="'+barHeight+'" rx="4"></rect>'+
+      '<text x="'+(x + barWidth / 2)+'" y="'+(height - 10)+'" text-anchor="middle" font-size="10">'+esc(label)+'</text>'+
+    '</g>';
+  }).join('');
+
+  return '<svg class="chartSvg" viewBox="0 0 '+width+' '+height+'" role="img">'+
+    '<line x1="'+paddingLeft+'" y1="'+(paddingTop + chartHeight)+'" x2="'+(width - paddingRight)+'" y2="'+(paddingTop + chartHeight)+'" stroke="#444"></line>'+
+    '<line x1="'+paddingLeft+'" y1="'+paddingTop+'" x2="'+paddingLeft+'" y2="'+(paddingTop + chartHeight)+'" stroke="#444"></line>'+
+    '<text x="8" y="20" font-size="11" fill="#aaa">'+esc(formatter(max))+'</text>'+
+    '<g fill="#6aa9ff">'+bars+'</g>'+
+  '</svg>';
 }
 
 function updateActiveTab(){
   document.querySelectorAll('.tabButton').forEach(button => {
     button.classList.toggle('active', button.getAttribute('data-view') === currentView);
   });
+}
+
+function updateDashboardPage(){
+  const hashPage = location.hash === '#usage' ? 'usage' : location.hash === '#sniffer' ? 'sniffer' : '';
+  if (hashPage) {
+    localStorage.setItem(CURRENT_PAGE_KEY, hashPage);
+  }
+
+  const page = hashPage || localStorage.getItem(CURRENT_PAGE_KEY) || 'sniffer';
+  const activePage = VALID_PAGES.has(page) ? page : 'sniffer';
+  document.querySelectorAll('.topTabButton').forEach(button => {
+    button.classList.toggle('active', button.getAttribute('data-page') === activePage);
+  });
+  document.getElementById('snifferPage').classList.toggle('active', activePage === 'sniffer');
+  document.getElementById('snifferBodyPage').classList.toggle('active', activePage === 'sniffer');
+  document.getElementById('usagePage').classList.toggle('active', activePage === 'usage');
+}
+
+function setDashboardPage(page){
+  if (!VALID_PAGES.has(page)) page = 'sniffer';
+  localStorage.setItem(CURRENT_PAGE_KEY, page);
+  history.replaceState(null, '', '#' + page);
+  updateDashboardPage();
 }
 
 function setCurrentView(view){
@@ -1129,14 +1546,19 @@ function initActiveTab(){
   updateActiveTab();
 }
 
+document.getElementById('showSnifferPageBtn').addEventListener('click', () => setDashboardPage('sniffer'));
+document.getElementById('showUsagePageBtn').addEventListener('click', () => setDashboardPage('usage'));
 document.getElementById('refreshBtn').addEventListener('click', refresh);
 document.getElementById('clearBtn').addEventListener('click', clearAll);
 document.getElementById('showSummaryBtn').addEventListener('click', () => setCurrentView('summary'));
 document.getElementById('showRequestBtn').addEventListener('click', () => setCurrentView('request'));
 document.getElementById('showResponseBtn').addEventListener('click', () => setCurrentView('response'));
 document.getElementById('copyVisibleBtn').addEventListener('click', copyVisible);
-document.getElementById('loadOpenCodeUsageBtn').addEventListener('click', () => {
-  loadOpenCodeUsage().catch(err => document.getElementById('ocUsageStatus').textContent = String(err && err.stack ? err.stack : err));
+document.getElementById('loadOpenCodeQuotaBtn').addEventListener('click', () => {
+  loadOpenCodeQuota().catch(err => document.getElementById('ocUsageStatus').textContent = String(err && err.stack ? err.stack : err));
+});
+document.getElementById('loadOpenCodeUsageDetailBtn').addEventListener('click', () => {
+  loadOpenCodeUsageDetail().catch(err => document.getElementById('ocUsageStatus').textContent = String(err && err.stack ? err.stack : err));
 });
 document.getElementById('clearOpenCodeUsageConfigBtn').addEventListener('click', clearOpenCodeUsageConfig);
 document.getElementById('closeModalBtn').addEventListener('click', closeValueModal);
@@ -1162,6 +1584,7 @@ document.addEventListener('keydown', event => {
   }
 });
 
+updateDashboardPage();
 initActiveTab();
 initOpenCodeUsageForm();
 initShowFullStringsToggle();
