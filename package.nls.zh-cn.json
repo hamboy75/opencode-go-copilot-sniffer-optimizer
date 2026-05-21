@@ -1,8 +1,8 @@
 {
-	"providerDisplayName": "OpenCode GO Copilot Sniffer & Optimizer",
-	"commandCategory": "OpenCode GO Sniffer",
-	"command.setApiKey": "设置 OpenCode GO API 密钥",
-	"command.getApiKey": "获取 OpenCode Go API 密钥",
+       "providerDisplayName": "OpenCode GO Copilot Sniffer & Optimizer",
+       "commandCategory": "OpenCode GO Sniffer",
+       "command.setApiKey": "设置 OpenCode GO API 密钥",
+       "command.getApiKey": "获取 OpenCode GO API 密钥",
 	"command.openSettings": "打开 OpenCode GO Copilot Sniffer & Optimizer 设置",
 	"command.generateCommit": "使用 OpenCode GO Sniffer 生成提交消息",
 	"command.abortCommit": "使用 OpenCode GO Sniffer 生成提交消息 - 停止",

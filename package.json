@@ -340,29 +340,29 @@
 				"opencodegosniffer.localStatsEnabled": {
 					"type": "boolean",
 					"default": true,
-					"description": "Enable the local HTTP statistics dashboard. It listens only on 127.0.0.1."
+					"description": "Enable the local HTTP Sniffer dashboard."
 				},
 				"opencodegosniffer.localStatsPort": {
 					"type": "number",
 					"default": 43177,
 					"minimum": 1024,
 					"maximum": 65535,
-					"description": "Local port used by the OpenCode Go Stats dashboard."
+					"description": "Base local port used by the OpenCode GO Sniffer dashboard."
 				},
 				"opencodegosniffer.localStatsHost": {
 					"type": "string",
 					"default": "127.0.0.1",
-					"description": "Bind address for the local stats dashboard. Use 127.0.0.1 for local-only access or 0.0.0.0 to expose it on the intranet."
+					"description": "Bind address for the local Sniffer dashboard. Use 127.0.0.1 for local-only access or 0.0.0.0 to expose it on the intranet."
 				},
 				"opencodegosniffer.localStatsAllowedClients": {
 					"type": "string",
 					"default": "127.0.0.1,::1",
-					"description": "Comma-separated allowlist of client IPs allowed to access the stats dashboard. Supports exact IPs, IPv4 wildcards like 192.168.1.*, CIDR like 192.168.1.0/24, and netmasks like 192.168.1.0/255.255.255.0."
+					"description": "Comma-separated allowlist of client IPs allowed to access the Sniffer dashboard. Supports exact IPs, IPv4 wildcards like 192.168.1.*, CIDR like 192.168.1.0/24, and netmasks like 192.168.1.0/255.255.255.0."
 				},
 				"opencodegosniffer.localStatsCapturePayloads": {
 					"type": "boolean",
 					"default": false,
-					"description": "Store request bodies and full response text in the local stats dashboard. Keep disabled unless debugging."
+					"description": "Store request bodies and full response text in the local Sniffer dashboard. Keep disabled unless debugging."
 				},
 				"opencodegosniffer.localStatsMaxEntries": {
 					"type": "number",

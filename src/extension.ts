@@ -14,7 +14,7 @@ import { LocalStatsServer } from "./localStats/server";
 const WELCOME_SHOWN_KEY = "opencodegosniffer.welcomeShown";
 
 /** Walkthrough contribution ID (publisher.extension#walkthroughId). */
-const WALKTHROUGH_ID = "PedroCuma.opencode-go-copilot-stats#opencodeGoGettingStarted";
+const WALKTHROUGH_ID = "Hamboy75.opencode-go-copilot-sniffer-optimizer#opencodeGoGettingStarted";
 
 export function activate(context: vscode.ExtensionContext) {
     // Initialize logger
@@ -27,11 +27,11 @@ export function activate(context: vscode.ExtensionContext) {
     const localStatsServer = new LocalStatsServer(context);
     localStatsServer.start().catch((error) => {
         logger.warn("localStats.start.failed", { error: String(error) });
-        vscode.window.showWarningMessage(l10nFormat("OpenCode Go Stats server could not start: {0}", String(error)));
+        vscode.window.showWarningMessage(l10nFormat("OpenCode GO Sniffer server could not start: {0}", String(error)));
     });
     const provider = new OpenCodeGoChatModelProvider(context.secrets, tokenCountStatusBarItem);
 
-    // Register the OpenCode Go provider under the vendor id used in package.json
+    // Register the OpenCode GO Sniffer provider under the vendor id used in package.json
     vscode.lm.registerLanguageModelChatProvider("opencodegosniffer", provider);
 
     // Helper: check if an API key is stored (without prompting)
@@ -45,8 +45,8 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand("opencodegosniffer.setApiKey", async () => {
             const existing = await context.secrets.get("opencodegosniffer.apiKey");
             const apiKey = await vscode.window.showInputBox({
-                title: l10n("OpenCode Go Provider API Key"),
-                prompt: existing ? l10n("Update your OpenCode Go API key") : l10n("Enter your OpenCode Go API key"),
+                title: l10n("OpenCode GO Sniffer API Key"),
+                prompt: existing ? l10n("Update your OpenCode GO API key") : l10n("Enter your OpenCode GO API key"),
                 ignoreFocusOut: true,
                 password: true,
                 value: existing ?? "",
@@ -56,15 +56,15 @@ export function activate(context: vscode.ExtensionContext) {
             }
             if (!apiKey.trim()) {
                 await context.secrets.delete("opencodegosniffer.apiKey");
-                vscode.window.showInformationMessage(l10n("OpenCode Go API key cleared."));
+                vscode.window.showInformationMessage(l10n("OpenCode GO API key cleared."));
                 return;
             }
             await context.secrets.store("opencodegosniffer.apiKey", apiKey.trim());
-            vscode.window.showInformationMessage(l10n("OpenCode Go API key saved."));
+            vscode.window.showInformationMessage(l10n("OpenCode GO API key saved."));
         })
     );
 
-    // Command to open the OpenCode Go website to get an API key
+    // Command to open the OpenCode GO website to get an API key
     context.subscriptions.push(
         vscode.commands.registerCommand("opencodegosniffer.getApiKey", () => {
             vscode.env.openExternal(vscode.Uri.parse("https://opencode.ai/auth"));
@@ -74,7 +74,7 @@ export function activate(context: vscode.ExtensionContext) {
     // Command to open extension settings
     context.subscriptions.push(
         vscode.commands.registerCommand("opencodegosniffer.openSettings", () => {
-            vscode.commands.executeCommand("workbench.action.openSettings", "@ext:PedroCuma.opencode-go-copilot-stats");
+            vscode.commands.executeCommand("workbench.action.openSettings", "@ext:Hamboy75.opencode-go-copilot-sniffer-optimizer");
         })
     );
 
@@ -86,7 +86,7 @@ export function activate(context: vscode.ExtensionContext) {
             await localStatsServer.start();
             const url = localStatsServer.getDashboardUrl();
             if (!url) {
-                vscode.window.showWarningMessage(l10n("OpenCode Go Stats server is disabled."));
+                vscode.window.showWarningMessage(l10n("OpenCode GO Sniffer server is disabled."));
                 return;
             }
             vscode.env.openExternal(vscode.Uri.parse(url));
@@ -95,17 +95,17 @@ export function activate(context: vscode.ExtensionContext) {
             await localStatsServer.stop();
             await localStatsServer.start();
             const url = localStatsServer.getDashboardUrl();
-            vscode.window.showInformationMessage(url ? l10nFormat("OpenCode Go Stats server running at {0}", url) : l10n("OpenCode Go Stats server is disabled."));
+            vscode.window.showInformationMessage(url ? l10nFormat("OpenCode GO Sniffer server running at {0}", url) : l10n("OpenCode GO Sniffer server is disabled."));
         }),
         vscode.commands.registerCommand("opencodegosniffer.copyLocalStatsUrl", async () => {
             await localStatsServer.start();
             const url = localStatsServer.getDashboardUrl();
             if (!url) {
-                vscode.window.showWarningMessage(l10n("OpenCode Go Stats server is disabled."));
+                vscode.window.showWarningMessage(l10n("OpenCode GO Sniffer server is disabled."));
                 return;
             }
             await vscode.env.clipboard.writeText(url);
-            vscode.window.showInformationMessage(l10n("OpenCode Go Stats local URL copied to clipboard."));
+            vscode.window.showInformationMessage(l10n("OpenCode GO Sniffer local URL copied to clipboard."));
         }),
         vscode.commands.registerCommand("opencodegosniffer.copyIntranetStatsUrl", async () => {
             await localStatsServer.start();
@@ -115,7 +115,7 @@ export function activate(context: vscode.ExtensionContext) {
                 return;
             }
             await vscode.env.clipboard.writeText(url);
-            vscode.window.showInformationMessage(l10nFormat("OpenCode Go Stats intranet URL copied to clipboard: {0}", url));
+            vscode.window.showInformationMessage(l10nFormat("OpenCode GO Sniffer intranet URL copied to clipboard: {0}", url));
         }),
         vscode.commands.registerCommand("opencodegosniffer.regenerateLocalStatsToken", async () => {
             await context.secrets.delete("opencodegosniffer.localStatsToken");
@@ -126,8 +126,8 @@ export function activate(context: vscode.ExtensionContext) {
             const intranetUrl = localStatsServer.getIntranetDashboardUrl();
 
             const message = intranetUrl
-                ? l10nFormat("OpenCode Go Stats token regenerated. Local: {0} Intranet: {1}", localUrl ?? "", intranetUrl)
-                : l10nFormat("OpenCode Go Stats token regenerated. Local: {0}", localUrl ?? "");
+                ? l10nFormat("OpenCode GO Sniffer token regenerated. Local: {0} Intranet: {1}", localUrl ?? "", intranetUrl)
+                : l10nFormat("OpenCode GO Sniffer token regenerated. Local: {0}", localUrl ?? "");
 
             if (localUrl) {
                 await vscode.env.clipboard.writeText(localUrl);

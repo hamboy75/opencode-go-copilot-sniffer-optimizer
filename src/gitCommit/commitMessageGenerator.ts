@@ -148,8 +148,8 @@ async function ensureApiKey(secrets: vscode.SecretStorage): Promise<string | und
 
     if (!apiKey) {
         const entered = await vscode.window.showInputBox({
-            title: l10n("OpenCode Go Provider API Key"),
-            prompt: l10n("Enter your OpenCode Go API key"),
+            title: l10n("OpenCode GO Sniffer API Key"),
+            prompt: l10n("Enter your OpenCode GO API key"),
             ignoreFocusOut: true,
             password: true,
         });
@@ -227,7 +227,7 @@ async function performCommitMsgGeneration(secrets: vscode.SecretStorage, gitDiff
 
         const apiKey = await ensureApiKey(secrets);
         if (!apiKey) {
-            throw new Error(l10n("OpenCode Go API key not found"));
+            throw new Error(l10n("OpenCode GO API key not found"));
         }
 
         const baseUrl = selectedModel.baseUrl || "https://opencode.ai/zen/go/v1/";

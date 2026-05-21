@@ -8,14 +8,14 @@ const zhCN: Record<string, string> = {
 	"Ready": "就绪",
 
 	// extension.ts - API key prompts
-	"OpenCode Go Provider API Key": "OpenCode Go 提供商 API 密钥",
-	"Update your OpenCode Go API key": "更新您的 OpenCode Go API 密钥",
-	"Enter your OpenCode Go API key": "输入您的 OpenCode Go API 密钥",
-	"OpenCode Go API key cleared.": "OpenCode Go API 密钥已清除。",
-	"OpenCode Go API key saved.": "OpenCode Go API 密钥已保存。",
+	"OpenCode GO Sniffer API Key": "OpenCode GO Sniffer API 密钥",
+	"Update your OpenCode GO API key": "更新您的 OpenCode GO API 密钥",
+	"Enter your OpenCode GO API key": "输入您的 OpenCode GO API 密钥",
+	"OpenCode GO API key cleared.": "OpenCode GO API 密钥已清除。",
+	"OpenCode GO API key saved.": "OpenCode GO API 密钥已保存。",
 
 	// provider.ts
-	"OpenCode Go API key not found": "未找到 OpenCode Go API 密钥",
+	"OpenCode GO API key not found": "未找到 OpenCode GO API 密钥",
 	"Invalid base URL configuration.": "无效的 Base URL 配置。",
 
 	// statusBar cache tooltip
@@ -90,14 +90,14 @@ const es: Record<string, string> = {
 	"Ready": "Listo",
 
 	// extension.ts - API key prompts
-	"OpenCode Go Provider API Key": "Clave API del proveedor OpenCode Go",
-	"Update your OpenCode Go API key": "Actualizar tu clave API de OpenCode Go",
-	"Enter your OpenCode Go API key": "Introduce tu clave API de OpenCode Go",
-	"OpenCode Go API key cleared.": "Clave API de OpenCode Go eliminada.",
-	"OpenCode Go API key saved.": "Clave API de OpenCode Go guardada.",
+	"OpenCode GO Sniffer API Key": "Clave API de OpenCode GO Sniffer",
+	"Update your OpenCode GO API key": "Actualizar tu clave API de OpenCode GO",
+	"Enter your OpenCode GO API key": "Introduce tu clave API de OpenCode GO",
+	"OpenCode GO API key cleared.": "Clave API de OpenCode GO eliminada.",
+	"OpenCode GO API key saved.": "Clave API de OpenCode GO guardada.",
 
 	// provider.ts
-	"OpenCode Go API key not found": "No se ha encontrado la clave API de OpenCode Go",
+	"OpenCode GO API key not found": "No se ha encontrado la clave API de OpenCode GO",
 	"Invalid base URL configuration.": "Configuración de Base URL no válida.",
 
 	// statusBar cache tooltip
@@ -165,14 +165,14 @@ const es: Record<string, string> = {
 	"Set to temp: {0}, top_p: {1} (custom)": "Temperatura establecida en {0}, top_p {1} (personalizado)",
 
 	// local stats server / dashboard commands
-	"OpenCode Go Stats server could not start: {0}": "No se pudo iniciar el servidor de estadísticas de OpenCode Go: {0}",
-	"OpenCode Go Stats server is disabled.": "El servidor de estadísticas de OpenCode Go está desactivado.",
-	"OpenCode Go Stats server running at {0}": "Servidor de estadísticas de OpenCode Go ejecutándose en {0}",
-	"OpenCode Go Stats local URL copied to clipboard.": "URL local de OpenCode Go Stats copiada al portapapeles.",
+	"OpenCode GO Sniffer server could not start: {0}": "No se pudo iniciar el servidor de OpenCode GO Sniffer: {0}",
+	"OpenCode GO Sniffer server is disabled.": "El servidor de OpenCode GO Sniffer está desactivado.",
+	"OpenCode GO Sniffer server running at {0}": "Servidor de OpenCode GO Sniffer ejecutándose en {0}",
+	"OpenCode GO Sniffer local URL copied to clipboard.": "URL local de OpenCode GO Sniffer copiada al portapapeles.",
 	"Could not determine an intranet IP address for this machine.": "No se pudo determinar una dirección IP de intranet para esta máquina.",
-	"OpenCode Go Stats intranet URL copied to clipboard: {0}": "URL de intranet de OpenCode Go Stats copiada al portapapeles: {0}",
-	"OpenCode Go Stats token regenerated. Local: {0} Intranet: {1}": "Token de OpenCode Go Stats regenerado. Local: {0} Intranet: {1}",
-	"OpenCode Go Stats token regenerated. Local: {0}": "Token de OpenCode Go Stats regenerado. Local: {0}",
+	"OpenCode GO Sniffer intranet URL copied to clipboard: {0}": "URL de intranet de OpenCode GO Sniffer copiada al portapapeles: {0}",
+	"OpenCode GO Sniffer token regenerated. Local: {0} Intranet: {1}": "Token de OpenCode GO Sniffer regenerado. Local: {0} Intranet: {1}",
+	"OpenCode GO Sniffer token regenerated. Local: {0}": "Token de OpenCode GO Sniffer regenerado. Local: {0}",
 };
 
 /**

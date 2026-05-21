@@ -69,7 +69,7 @@ export class LocalStatsServer {
 
         throw lastError instanceof Error
             ? lastError
-            : new Error(`Could not start OpenCode Go Stats server from port ${desiredPort} to ${desiredPort + attempts}`);
+            : new Error(`Could not start OpenCode GO Sniffer server from port ${desiredPort} to ${desiredPort + attempts}`);
     }
 
     async stop(): Promise<void> {
@@ -514,7 +514,7 @@ function dashboardHtml(token: string): string {
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>OpenCode Go Stats</title>
+<title>OpenCode GO Sniffer</title>
 <style>
 body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;margin:24px;background:#111;color:#eee}
 button,input{font:inherit}
@@ -564,8 +564,8 @@ code{font-family:ui-monospace,SFMono-Regular,Consolas,Liberation Mono,Menlo,mono
 </style>
 </head>
 <body>
-<h1>OpenCode Go Stats</h1>
-<p class="muted">Local dashboard. Token auth is embedded in this URL.</p>
+<h1>OpenCode GO Sniffer</h1>
+<p class="muted">Local Sniffer dashboard. Token auth is embedded in this URL.</p>
 <div class="toolbar">
   <button id="refreshBtn">Refresh</button>
   <button id="clearBtn">Clear</button>
@@ -576,7 +576,7 @@ code{font-family:ui-monospace,SFMono-Regular,Consolas,Liberation Mono,Menlo,mono
   <h2>OpenCode Usage</h2>
   <p class="muted">
     Paste your OpenCode workspace ID and auth cookie. The cookie is stored only in this browser localStorage.
-    The local stats server calls opencode.ai server-side to avoid CORS/cookie header limitations.
+    The local Sniffer server calls opencode.ai server-side to avoid CORS/cookie header limitations.
   </p>
   <div class="usageForm">
     <label>

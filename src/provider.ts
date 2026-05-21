@@ -128,7 +128,7 @@ async function applyRequestPruning<T>(
 }
 
 /**
- * VS Code Chat provider backed by OpenCode Go API.
+ * VS Code Chat provider backed by the OpenCode GO API.
  */
 export class OpenCodeGoChatModelProvider implements LanguageModelChatProvider {
     /** Track last request completion time for delay calculation. */
@@ -329,7 +329,7 @@ export class OpenCodeGoChatModelProvider implements LanguageModelChatProvider {
             const modelApiKey = await this.ensureApiKey();
             if (!modelApiKey) {
                 logger.warn("apiKey.missing", {});
-                throw new Error(l10n("OpenCode Go API key not found"));
+                throw new Error(l10n("OpenCode GO API key not found"));
             }
 
             // Send chat request
@@ -830,8 +830,8 @@ export class OpenCodeGoChatModelProvider implements LanguageModelChatProvider {
 
         if (!apiKey) {
             const entered = await vscode.window.showInputBox({
-                title: l10n("OpenCode Go Provider API Key"),
-                prompt: l10n("Enter your OpenCode Go API key"),
+                title: l10n("OpenCode GO Provider API Key"),
+                prompt: l10n("Enter your OpenCode GO API key"),
                 ignoreFocusOut: true,
                 password: true,
             });
