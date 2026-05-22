@@ -24,7 +24,8 @@
 	"bugs": {
 	"url": "https://github.com/hamboy75/opencode-go-copilot-sniffer-optimizer/issues"
 	},
-	"version": "1.0.1",
+	"version": "1.0.2",
+	"version": "1.0.2",
 	"engines": {
 		"vscode": "^1.116.0"
 	},
@@ -71,6 +72,21 @@
 				"command": "opencodegosniffer.openUsageStats",
 				"category": "%commandCategory%",
 				"title": "%command.openUsageStats%"
+			},
+			{
+				"command": "opencodegosniffer.refreshOpenCodeUsageStatus",
+				"category": "%commandCategory%",
+				"title": "%command.refreshOpenCodeUsageStatus%"
+			},
+			{
+				"command": "opencodegosniffer.configureOpenCodeUsage",
+				"category": "%commandCategory%",
+				"title": "%command.configureOpenCodeUsage%"
+			},
+			{
+				"command": "opencodegosniffer.clearOpenCodeUsage",
+				"category": "%commandCategory%",
+				"title": "%command.clearOpenCodeUsage%"
 			},
 			{
 				"command": "opencodegosniffer.restartLocalStats",
@@ -170,6 +186,15 @@
 				},
 				{
 					"command": "opencodegosniffer.openUsageStats"
+				},
+				{
+					"command": "opencodegosniffer.refreshOpenCodeUsageStatus"
+				},
+				{
+					"command": "opencodegosniffer.configureOpenCodeUsage"
+				},
+				{
+					"command": "opencodegosniffer.clearOpenCodeUsage"
 				}
 			]
 		},
@@ -370,7 +395,7 @@
 				"opencodegosniffer.localStatsCapturePayloads": {
 					"type": "boolean",
 					"default": false,
-					"description": "Store request bodies and full response text in the local Sniffer dashboard. Keep disabled unless debugging."
+					"description": "Store full request and response bodies for dashboard inspection. This may include code, prompts, responses, and sensitive data. Disabled by default."
 				},
 				"opencodegosniffer.localStatsMaxEntries": {
 					"type": "number",

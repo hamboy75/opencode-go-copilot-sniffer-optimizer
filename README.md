@@ -29,8 +29,6 @@ Credit and thanks go to **OnesoftQwQ** for the original foundation.
 
 It started as an OpenCode GO Copilot provider, but this fork adds a full local dashboard to inspect what is being sent, measure token usage, monitor upstream responses, review payloads, estimate pruning savings and optionally reduce unnecessary request data before it reaches the OpenCode server.
 
-The internal command and setting namespace is still `opencodegosniffer.*` for compatibility with previous builds.
-
 ## Main features
 
 - OpenCode GO models inside GitHub Copilot Chat.
@@ -46,12 +44,15 @@ The internal command and setting namespace is still `opencodegosniffer.*` for co
 - Preview mode for pruning savings before changing traffic.
 - Token and byte savings metrics.
 - Dedicated Usage tab.
+- Compact `OC 🔎` status bar usage indicator.
+- Command Palette setup for OpenCode usage credentials without opening the dashboard.
 - OpenCode current quota cards for rolling 5-hour, weekly and monthly usage.
 - Reset countdowns read from OpenCode usage data.
-- OpenCode usage detail loading through the `_server` endpoint.
+- Current-month OpenCode usage detail loading through the `_server` endpoint.
 - Usage charts for daily cost and token usage.
-- Usage detail table by model, provider, date, session and page.
+- Usage detail table by model, provider, date and session.
 - Local and intranet dashboard URLs.
+- Smart intranet URL opening for Remote SSH sessions.
 - Dynamic port selection for multiple VS Code instances.
 - IP allowlist for intranet access.
 - Regenerable dashboard token.
@@ -121,13 +122,17 @@ The dashboard shows:
 - selected field modal;
 - dedicated Sniffer and Usage tabs;
 - OpenCode rolling 5-hour, weekly and monthly usage percentages;
-- OpenCode usage detail rows;
+- current-month OpenCode usage detail loaded automatically from `_server`;
 - local usage charts.
 
 ## Dashboard commands
 
 ```text
 OpenCode GO Sniffer: Open Sniffer Dashboard
+OpenCode GO Sniffer: Open Usage Dashboard
+OpenCode GO Sniffer: Configure OpenCode Usage Credentials
+OpenCode GO Sniffer: Clear OpenCode Usage Credentials
+OpenCode GO Sniffer: Refresh OpenCode Usage Status
 OpenCode GO Sniffer: Restart Sniffer Server
 OpenCode GO Sniffer: Copy Local Sniffer URL
 OpenCode GO Sniffer: Copy Intranet Sniffer URL
@@ -158,6 +163,14 @@ This allows several VS Code or Remote SSH instances to coexist:
 ```
 
 The copy URL commands always use the real active port.
+
+When running in a Remote SSH session, dashboard opening commands prefer the intranet URL when it can be detected. This avoids opening `127.0.0.1` on the local machine while the dashboard server is actually running on the remote host.
+
+For example, if the remote host is `192.168.1.14`, clicking the Usage status item opens:
+
+```text
+http://192.168.1.14:43177/?token=...#usage
+```
 
 ## Intranet access
 
@@ -320,6 +333,33 @@ The local Sniffer server performs these calls server-side to avoid browser CORS 
 
 ### Current usage / quota
 
+OpenCode usage can be configured in two ways:
+
+- from the **Usage** tab in the local dashboard;
+- directly from VS Code without opening the dashboard.
+
+To configure it from VS Code:
+
+```text
+Ctrl+Shift+P → OpenCode GO Sniffer: Configure OpenCode Usage Credentials
+```
+
+The command asks for:
+
+1. OpenCode Usage URL;
+2. OpenCode auth cookie;
+3. optional `x-server-id` for detailed rows.
+
+The Usage URL is stored in VS Code globalState. The auth cookie and optional `x-server-id` are stored in VS Code SecretStorage.
+
+To clear these stored values:
+
+```text
+Ctrl+Shift+P → OpenCode GO Sniffer: Clear OpenCode Usage Credentials
+```
+
+This is useful when the dashboard cannot be opened easily, for example in restricted Remote SSH or intranet setups, but you still want the `OC 🔎` status bar to refresh quota data.
+
 The **Load current usage** button reads the OpenCode `/go` page for the selected workspace.
 
 This requires only:
@@ -359,11 +399,43 @@ This is used for detailed historical usage rows and requires:
 
 - workspace usage URL;
 - auth cookie;
-- `x-server-id`;
-- start page;
-- max pages.
+- `x-server-id`.
 
-The `x-server-id` is required only for detailed rows. You can copy it from Chrome DevTools or from a copied `curl` request to `https://opencode.ai/_server`.
+The `x-server-id` is required only for detailed rows.
+
+You can find it from the OpenCode usage page:
+
+```text
+https://opencode.ai/workspace/wrk_XXXXXXXXXXXXXXXXXXXXXXXXXX/usage
+```
+
+Steps:
+
+1. Open the OpenCode usage page in your browser.
+2. Open browser DevTools.
+3. Go to the **Network** tab.
+4. On the OpenCode usage page, click the control that loads the next usage page.
+5. In DevTools, look for a request to:
+
+```text
+https://opencode.ai/_server
+```
+
+6. Select that request.
+7. Open its **Request Headers** section.
+8. Copy the value of:
+
+```text
+x-server-id
+```
+
+Paste that value into the dashboard field **x-server-id for detail**.
+
+This value is only needed for **Load usage detail**. It is not needed for **Load current usage**, because current quota cards are loaded from the OpenCode `/go` page.
+
+The dashboard starts from internal page `0` automatically and keeps loading detail pages until it reaches records older than the start of the current month, or until an internal safety limit is reached.
+
+The user does not need to know or configure OpenCode internal page numbers.
 
 The detail view shows:
 
@@ -374,7 +446,7 @@ The detail view shows:
 - cache read tokens;
 - input + cache tokens;
 - estimated cost;
-- usage table by model, provider, date, session and page.
+- usage table by model, provider, date and session.
 
 It also renders simple local charts for:
 
@@ -388,15 +460,49 @@ It also renders simple local charts for:
 | Usage URL | Yes | Yes | Example: `https://opencode.ai/workspace/wrk_.../usage` |
 | Auth cookie | Yes | Yes | Accepts either `auth=...; oc_locale=es` or the raw auth value |
 | x-server-id | No | Yes | Required only for `_server` usage detail |
-| Start page | No | Yes | First detail page to load |
-| Max pages | No | Yes | Number of `_server` detail pages to fetch |
 
 ### Privacy and storage
 
 > [!WARNING]
-> Your OpenCode auth cookie is sensitive. The dashboard stores it only in browser `localStorage`, but you should treat it as a secret. Clear it after debugging and rotate your session if it was exposed.
+> Your OpenCode auth cookie is sensitive. When configured in the dashboard, it is stored in browser `localStorage` for the web UI and also persisted to VS Code SecretStorage after usage is loaded. When configured from VS Code, it is stored directly in VS Code SecretStorage. Treat it as a secret. Clear it after debugging and rotate your session if it was exposed.
 
 The OpenCode usage integration is optional. It is intended for debugging, monitoring and understanding consumption while working with OpenCode GO models through Copilot Chat.
+
+## OpenCode usage status bar
+
+The extension can show an additional compact OpenCode usage status item in the VS Code status bar:
+
+```text
+OC 🔎 3% / 6% / 20%
+```
+
+The three values represent:
+
+```text
+Rolling 5h / Weekly / Monthly
+```
+
+The tooltip shows:
+
+```text
+OpenCode Usage
+Rolling 5h: 3%
+Weekly: 6%
+Monthly: 20%
+Click to open Usage tab
+```
+
+Clicking it opens the dashboard directly on the **Usage** tab. In Remote SSH sessions it prefers the intranet dashboard URL when available.
+
+The status refreshes automatically while VS Code is running.
+
+It also refreshes when opening the Usage dashboard or manually with:
+
+```text
+Ctrl+Shift+P → OpenCode GO Sniffer: Refresh OpenCode Usage Status
+```
+
+The first time it may show `-- / -- / --` until usage credentials have been configured either from VS Code or from the Usage tab.
 
 ## Advanced token indicator
 
@@ -563,7 +669,7 @@ Recommendations:
 - use `127.0.0.1` unless you need intranet access;
 - use a restrictive IP allowlist;
 - regenerate the dashboard token if shared accidentally;
-- clear OpenCode usage cookies from the dashboard after testing;
+- clear OpenCode usage credentials after testing and rotate the OpenCode session if the cookie was exposed;
 - use pruning preview mode before enabling pruning.
 
 ## Build

@@ -6,6 +6,22 @@
 ```markdown
 # Changelog
 
+## 1.0.2
+
+### Added
+
+- Added VS Code command to configure OpenCode usage credentials without opening the local dashboard.
+- Added VS Code command to clear stored OpenCode usage credentials.
+- Added VS Code command to manually refresh the OpenCode usage status bar.
+- OpenCode usage status now refreshes automatically every minute and when opening the Usage dashboard.
+- Usage URL, auth cookie and optional `x-server-id` can now be entered directly from the Command Palette.
+- The `OC` usage status bar can refresh from credentials configured directly in VS Code.
+
+### Security
+
+- OpenCode auth cookie and `x-server-id` are stored in VS Code SecretStorage when configured from VS Code.
+- OpenCode Usage URL is stored in VS Code globalState.
+
 ## 1.0.1
 
 ### Fixed

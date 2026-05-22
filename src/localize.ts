@@ -80,6 +80,23 @@ const zhCN: Record<string, string> = {
 	"Set to temperature: {0} ({1})": "已设为温度 {0} ({1})",
 	"Set to temperature: {0} (custom)": "已设为温度 {0} (自定义)",
 	"Set to temp: {0}, top_p: {1} (custom)": "已设为温度 {0}, top_p {1} (自定义)",
+
+	// OpenCode usage credentials
+	"OpenCode Usage URL": "OpenCode 用量 URL",
+	"Paste your OpenCode workspace usage URL, for example https://opencode.ai/workspace/wrk_.../usage": "粘贴你的 OpenCode 工作区用量 URL，例如 https://opencode.ai/workspace/wrk_.../usage",
+	"Usage URL is required.": "用量 URL 是必填项。",
+	"Usage URL must contain a workspace id like wrk_...": "用量 URL 必须包含类似 wrk_... 的工作区 ID。",
+	"OpenCode Auth Cookie": "OpenCode Auth Cookie",
+	"Paste your OpenCode auth cookie. You can paste either auth=... or the raw auth value.": "粘贴你的 OpenCode auth cookie。可以粘贴 auth=...，也可以粘贴原始 auth 值。",
+	"Auth cookie is required.": "Auth cookie 是必填项。",
+	"OpenCode x-server-id": "OpenCode x-server-id",
+	"Optional. Required only for detailed usage rows. Copy it from DevTools Network request headers on the OpenCode usage page.": "可选。仅详细用量记录需要。从 OpenCode 用量页面的 DevTools Network 请求头中复制。",
+	"OpenCode usage credentials saved.": "OpenCode 用量凭据已保存。",
+	"Refreshing OpenCode usage...": "正在刷新 OpenCode 用量...",
+	"OpenCode usage status refreshed.": "OpenCode 用量状态已刷新。",
+	"Clear stored OpenCode usage URL, auth cookie and x-server-id?": "清除已保存的 OpenCode 用量 URL、auth cookie 和 x-server-id？",
+	"Clear": "清除",
+	"OpenCode usage credentials cleared.": "OpenCode 用量凭据已清除。",
 };
 
 const es: Record<string, string> = {
@@ -163,6 +180,23 @@ const es: Record<string, string> = {
 	"Set to temperature: {0} ({1})": "Temperatura establecida en {0} ({1})",
 	"Set to temperature: {0} (custom)": "Temperatura establecida en {0} (personalizado)",
 	"Set to temp: {0}, top_p: {1} (custom)": "Temperatura establecida en {0}, top_p {1} (personalizado)",
+
+	// OpenCode usage credentials
+	"OpenCode Usage URL": "URL de uso de OpenCode",
+	"Paste your OpenCode workspace usage URL, for example https://opencode.ai/workspace/wrk_.../usage": "Pega la URL de uso de tu workspace de OpenCode, por ejemplo https://opencode.ai/workspace/wrk_.../usage",
+	"Usage URL is required.": "La URL de uso es obligatoria.",
+	"Usage URL must contain a workspace id like wrk_...": "La URL de uso debe contener un ID de workspace como wrk_...",
+	"OpenCode Auth Cookie": "Cookie auth de OpenCode",
+	"Paste your OpenCode auth cookie. You can paste either auth=... or the raw auth value.": "Pega la cookie auth de OpenCode. Puedes pegar auth=... o el valor auth sin prefijo.",
+	"Auth cookie is required.": "La cookie auth es obligatoria.",
+	"OpenCode x-server-id": "x-server-id de OpenCode",
+	"Optional. Required only for detailed usage rows. Copy it from DevTools Network request headers on the OpenCode usage page.": "Opcional. Solo es necesario para filas de uso detalladas. Cópialo desde los headers de la petición en DevTools Network en la página de uso de OpenCode.",
+	"OpenCode usage credentials saved.": "Credenciales de uso de OpenCode guardadas.",
+	"Refreshing OpenCode usage...": "Refrescando uso de OpenCode...",
+	"OpenCode usage status refreshed.": "Estado de uso de OpenCode refrescado.",
+	"Clear stored OpenCode usage URL, auth cookie and x-server-id?": "¿Borrar la URL de uso, la cookie auth y el x-server-id guardados de OpenCode?",
+	"Clear": "Borrar",
+	"OpenCode usage credentials cleared.": "Credenciales de uso de OpenCode borradas.",
 
 	// local stats server / dashboard commands
 	"OpenCode GO Sniffer server could not start: {0}": "No se pudo iniciar el servidor de OpenCode GO Sniffer: {0}",

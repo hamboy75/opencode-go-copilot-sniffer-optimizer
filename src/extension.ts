@@ -16,7 +16,7 @@ const WELCOME_SHOWN_KEY = "opencodegosniffer.welcomeShown";
 /** Walkthrough contribution ID (publisher.extension#walkthroughId). */
 const WALKTHROUGH_ID = "Hamboy75.opencode-go-copilot-sniffer-optimizer#opencodeGoGettingStarted";
 
-const OPENCODE_USAGE_STATUS_INTERVAL_MS = 5 * 60 * 1000;
+const OPENCODE_USAGE_STATUS_INTERVAL_MS = 60 * 1000;
 const OPENCODE_USAGE_STATUS_INITIAL_DELAY_MS = 5000;
 
 export function activate(context: vscode.ExtensionContext) {
@@ -107,7 +107,81 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Local statistics dashboard commands
     context.subscriptions.push(
+        vscode.commands.registerCommand("opencodegosniffer.refreshOpenCodeUsageStatus", async () => {
+            openCodeUsageStatusBarItem.text = "OC $(sync~spin) ...";
+            openCodeUsageStatusBarItem.tooltip = l10n("Refreshing OpenCode usage...");
+
+            await updateOpenCodeUsageStatusBar(localStatsServer, openCodeUsageStatusBarItem);
+
+            vscode.window.showInformationMessage(l10n("OpenCode usage status refreshed."));
+        }),
+        vscode.commands.registerCommand("opencodegosniffer.configureOpenCodeUsage", async () => {
+            const existing = await localStatsServer.getStoredOpencodeUsageConfig();
+
+            const usageUrl = await vscode.window.showInputBox({
+                title: l10n("OpenCode Usage URL"),
+                prompt: l10n("Paste your OpenCode workspace usage URL, for example https://opencode.ai/workspace/wrk_.../usage"),
+                value: existing.usageUrl ?? "",
+                ignoreFocusOut: true,
+                validateInput: (value) => {
+                    const trimmed = value.trim();
+                    if (!trimmed) return l10n("Usage URL is required.");
+                    if (!/\bwrk_[A-Za-z0-9]+\b/.test(trimmed)) return l10n("Usage URL must contain a workspace id like wrk_...");
+                    return null;
+                },
+            });
+            if (usageUrl === undefined) return;
+
+            const authCookie = await vscode.window.showInputBox({
+                title: l10n("OpenCode Auth Cookie"),
+                prompt: l10n("Paste your OpenCode auth cookie. You can paste either auth=... or the raw auth value."),
+                value: existing.authCookie ?? "",
+                ignoreFocusOut: true,
+                password: true,
+                validateInput: (value) => {
+                    if (!value.trim()) return l10n("Auth cookie is required.");
+                    return null;
+                },
+            });
+            if (authCookie === undefined) return;
+
+            const serverId = await vscode.window.showInputBox({
+                title: l10n("OpenCode x-server-id"),
+                prompt: l10n("Optional. Required only for detailed usage rows. Copy it from DevTools Network request headers on the OpenCode usage page."),
+                value: existing.serverId ?? "",
+                ignoreFocusOut: true,
+                password: true,
+            });
+            if (serverId === undefined) return;
+
+            await localStatsServer.setStoredOpencodeUsageConfig({
+                usageUrl: usageUrl.trim(),
+                authCookie: authCookie.trim(),
+                serverId: serverId.trim(),
+            });
+
+            vscode.window.showInformationMessage(l10n("OpenCode usage credentials saved."));
+            refreshOpenCodeUsageStatus();
+        }),
+        vscode.commands.registerCommand("opencodegosniffer.clearOpenCodeUsage", async () => {
+            const confirm = await vscode.window.showWarningMessage(
+                l10n("Clear stored OpenCode usage URL, auth cookie and x-server-id?"),
+                { modal: true },
+                l10n("Clear")
+            );
+
+            if (confirm !== l10n("Clear")) {
+                return;
+            }
+
+            await localStatsServer.clearStoredOpencodeUsageConfig();
+            vscode.window.showInformationMessage(l10n("OpenCode usage credentials cleared."));
+            refreshOpenCodeUsageStatus();
+        }),
         vscode.commands.registerCommand("opencodegosniffer.openUsageStats", async () => {
+            openCodeUsageStatusBarItem.text = "OC $(sync~spin) ...";
+            await updateOpenCodeUsageStatusBar(localStatsServer, openCodeUsageStatusBarItem);
+
             await localStatsServer.start();
             const url = localStatsServer.getPreferredDashboardUrl("usage");
             if (!url) {
@@ -115,7 +189,6 @@ export function activate(context: vscode.ExtensionContext) {
                 return;
             }
             vscode.env.openExternal(vscode.Uri.parse(url));
-            refreshOpenCodeUsageStatus();
         }),
         vscode.commands.registerCommand("opencodegosniffer.openLocalStats", async () => {
             await localStatsServer.start();
