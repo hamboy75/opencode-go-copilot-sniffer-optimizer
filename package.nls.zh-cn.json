@@ -64,6 +64,7 @@
 	"config.localStatsEnabled.desc": "启用本地 HTTP Sniffer 面板。",
 	"config.localStatsPort.desc": "OpenCode GO Sniffer 面板使用的基础本地端口。",
 	"config.localStatsHost.desc": "本地 Sniffer 面板的监听地址。使用 127.0.0.1 表示仅本机访问，使用 0.0.0.0 可暴露到内网。",
+	"config.localStatsUsePortForwarding.desc": "尽可能通过 VS Code 端口转发打开本地 Sniffer 面板。推荐用于 Remote SSH。关闭后，面板命令将使用配置的本地/内网 URL 作为回退。",
 	"config.localStatsAllowedClients.desc": "允许访问 Sniffer 面板的客户端 IP 白名单，使用英文逗号分隔。支持精确 IP、192.168.1.* 这样的 IPv4 通配符、192.168.1.0/24 这样的 CIDR，以及 192.168.1.0/255.255.255.0 这样的子网掩码。",
 	"config.localStatsCapturePayloads.desc": "保存完整的请求体和响应体，以便在面板中检查。这可能包含代码、提示词、响应内容和敏感数据。默认关闭。",
 	"config.localStatsMaxEntries.desc": "内存中保留的本地请求记录最大数量。",

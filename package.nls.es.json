@@ -55,6 +55,7 @@
  "config.localStatsEnabled.desc": "Activa el servidor local del Sniffer de OpenCode GO.",
  "config.localStatsPort.desc": "Puerto base para el servidor local del Sniffer. Si el incremento automático está activado y el puerto está ocupado, se probarán los siguientes puertos.",
  "config.localStatsHost.desc": "Dirección en la que escuchará el servidor local del Sniffer. Usa 127.0.0.1 para acceso solo local o 0.0.0.0 para permitir acceso desde la intranet.",
+ "config.localStatsUsePortForwarding.desc": "Abre el panel local del Sniffer mediante el port forwarding de VS Code cuando sea posible. Recomendado para Remote SSH. Si se desactiva, los comandos del dashboard usarán la URL local/intranet configurada como fallback.",
  "config.localStatsAllowedClients.desc": "Lista separada por comas de clientes permitidos para acceder al panel del Sniffer. Soporta IP exacta, comodines IPv4 como 192.168.1.*, CIDR como 192.168.1.0/24, máscara decimal como 192.168.1.0/255.255.255.0, '*' o 'any'.",
  "config.localStatsCapturePayloads.desc": "Guarda los cuerpos completos de petición y respuesta para inspección en el dashboard. Puede incluir código, prompts, respuestas y datos sensibles. Por defecto: desactivado.",
  "config.localStatsMaxEntries.desc": "Número máximo de peticiones que se conservan en memoria en el dashboard local.",

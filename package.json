@@ -22,10 +22,9 @@
 	},
 	"homepage": "https://github.com/hamboy75/opencode-go-copilot-sniffer-optimizer",
 	"bugs": {
-	"url": "https://github.com/hamboy75/opencode-go-copilot-sniffer-optimizer/issues"
+		"url": "https://github.com/hamboy75/opencode-go-copilot-sniffer-optimizer/issues"
 	},
-	"version": "1.0.2",
-	"version": "1.0.2",
+	"version": "1.0.3",
 	"engines": {
 		"vscode": "^1.116.0"
 	},
@@ -386,6 +385,11 @@
 					"type": "string",
 					"default": "127.0.0.1",
 					"description": "Bind address for the local Sniffer dashboard. Use 127.0.0.1 for local-only access or 0.0.0.0 to expose it on the intranet."
+				},
+				"opencodegosniffer.localStatsUsePortForwarding": {
+					"type": "boolean",
+					"default": true,
+					"description": "%config.localStatsUsePortForwarding.desc%"
 				},
 				"opencodegosniffer.localStatsAllowedClients": {
 					"type": "string",

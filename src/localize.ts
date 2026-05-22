@@ -96,6 +96,7 @@ const zhCN: Record<string, string> = {
 	"OpenCode usage status refreshed.": "OpenCode 用量状态已刷新。",
 	"Clear stored OpenCode usage URL, auth cookie and x-server-id?": "清除已保存的 OpenCode 用量 URL、auth cookie 和 x-server-id？",
 	"Clear": "清除",
+	"Could not open the dashboard through VS Code port forwarding. Falling back to the configured dashboard URL.": "无法通过 VS Code 端口转发打开面板。将回退到配置的面板 URL。",
 	"OpenCode usage credentials cleared.": "OpenCode 用量凭据已清除。",
 };
 
@@ -196,6 +197,7 @@ const es: Record<string, string> = {
 	"OpenCode usage status refreshed.": "Estado de uso de OpenCode refrescado.",
 	"Clear stored OpenCode usage URL, auth cookie and x-server-id?": "¿Borrar la URL de uso, la cookie auth y el x-server-id guardados de OpenCode?",
 	"Clear": "Borrar",
+	"Could not open the dashboard through VS Code port forwarding. Falling back to the configured dashboard URL.": "No se pudo abrir el dashboard mediante el port forwarding de VS Code. Se usará como alternativa la URL configurada del dashboard.",
 	"OpenCode usage credentials cleared.": "Credenciales de uso de OpenCode borradas.",
 
 	// local stats server / dashboard commands

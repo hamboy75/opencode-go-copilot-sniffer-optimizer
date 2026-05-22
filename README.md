@@ -51,8 +51,8 @@ It started as an OpenCode GO Copilot provider, but this fork adds a full local d
 - Current-month OpenCode usage detail loading through the `_server` endpoint.
 - Usage charts for daily cost and token usage.
 - Usage detail table by model, provider, date and session.
-- Local and intranet dashboard URLs.
-- Smart intranet URL opening for Remote SSH sessions.
+- Local, forwarded and intranet dashboard URLs.
+- VS Code port forwarding support for Remote SSH dashboard access.
 - Dynamic port selection for multiple VS Code instances.
 - IP allowlist for intranet access.
 - Regenerable dashboard token.
@@ -164,12 +164,41 @@ This allows several VS Code or Remote SSH instances to coexist:
 
 The copy URL commands always use the real active port.
 
-When running in a Remote SSH session, dashboard opening commands prefer the intranet URL when it can be detected. This avoids opening `127.0.0.1` on the local machine while the dashboard server is actually running on the remote host.
+## VS Code port forwarding
 
-For example, if the remote host is `192.168.1.14`, clicking the Usage status item opens:
+By default, dashboard opening commands use VS Code port forwarding when possible.
+
+This is especially useful in Remote SSH sessions because the dashboard can keep listening on:
 
 ```text
-http://192.168.1.14:43177/?token=...#usage
+127.0.0.1:43177
+```
+
+and VS Code exposes it safely to your local browser through its forwarded-port mechanism.
+
+This means the normal recommended setup is:
+
+```json
+{
+  "opencodegosniffer.localStatsHost": "127.0.0.1",
+  "opencodegosniffer.localStatsUsePortForwarding": true
+}
+```
+
+With this setup you usually do **not** need:
+
+- `0.0.0.0`;
+- intranet allowlist changes;
+- direct access to the remote host LAN IP.
+
+If port forwarding cannot be used, the extension falls back to the configured dashboard URL.
+
+Disable this behavior with:
+
+```json
+{
+  "opencodegosniffer.localStatsUsePortForwarding": false
+}
 ```
 
 ## Intranet access
@@ -177,6 +206,8 @@ http://192.168.1.14:43177/?token=...#usage
 By default the dashboard listens only on localhost.
 
 To expose it to your LAN:
+
+This is optional and mostly useful when you explicitly want direct LAN access instead of VS Code port forwarding.
 
 ```json
 {
@@ -492,7 +523,7 @@ Monthly: 20%
 Click to open Usage tab
 ```
 
-Clicking it opens the dashboard directly on the **Usage** tab. In Remote SSH sessions it prefers the intranet dashboard URL when available.
+Clicking it opens the dashboard directly on the **Usage** tab. In Remote SSH sessions it uses VS Code port forwarding by default when available, and falls back to the configured dashboard URL if needed.
 
 The status refreshes automatically while VS Code is running.
 
@@ -637,6 +668,7 @@ Zen models appear in the model picker with a `Zen/` prefix.
   "opencodegosniffer.localStatsPort": 43177,
   "opencodegosniffer.localStatsPortAutoIncrementMax": 20,
   "opencodegosniffer.localStatsHost": "127.0.0.1",
+  "opencodegosniffer.localStatsUsePortForwarding": true,
   "opencodegosniffer.localStatsAllowedClients": "127.0.0.1,::1",
   "opencodegosniffer.localStatsCapturePayloads": false,
   "opencodegosniffer.localStatsMaxEntries": 200,
@@ -667,6 +699,7 @@ Recommendations:
 
 - keep payload capture disabled unless debugging;
 - use `127.0.0.1` unless you need intranet access;
+- keep VS Code port forwarding enabled for Remote SSH unless you specifically need direct LAN access;
 - use a restrictive IP allowlist;
 - regenerate the dashboard token if shared accidentally;
 - clear OpenCode usage credentials after testing and rotate the OpenCode session if the cookie was exposed;
